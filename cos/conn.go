@@ -1,12 +1,12 @@
 package cos
 
 import (
-	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -19,56 +19,46 @@ type Conn struct {
 
 // Do 所有请求的入口
 func (conn *Conn) Do(ctx context.Context, method, bucket, object string, params map[string]interface{}, headers map[string]string, body io.Reader) (*http.Response, error) {
-	queryStr := getQueryStr(params)
+	queryStr := getParamStr(params)
+	if len(queryStr) > 0 {
+		queryStr = "?" + queryStr
+	}
 	url := conn.buildURL(bucket, object, queryStr)
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(url)
+
 	conn.signHeader(req, params, headers)
 	req.Header.Set("User-Agent", conn.conf.UA)
 	req.Header.Set("Content-Length", strconv.FormatInt(req.ContentLength, 10))
 	setHeader(req, headers)
 
 	res, err := conn.c.Do(req)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		defer res.Body.Close()
 		return checkHTTPErr(res)
 	}
 
 	return res, nil
 }
 
-func getQueryStr(params map[string]interface{}) string {
-	if params == nil || len(params) == 0 {
-		return ""
-	}
-
-	buf := new(bytes.Buffer)
-	buf.WriteString("?")
-	for k, v := range params {
-		buf.WriteString(k)
-		vs := interfaceToString(v)
-		if vs == "" {
-			buf.WriteString("&")
-			continue
-		}
-		buf.WriteString("=")
-		buf.WriteString(vs)
-		buf.WriteString("&")
-	}
-
-	return strings.Trim(buf.String(), "&")
-}
-
 func (conn *Conn) buildURL(bucket, object, queryStr string) string {
 	domain := fmt.Sprintf("%s-%s.cos.%s.%s", bucket, conn.conf.AppID, conn.conf.Region, conn.conf.Domain)
-	url := fmt.Sprintf("http://%s/%s%s", domain, object, queryStr)
+	url := fmt.Sprintf("http://%s/%s%s", domain, escape(object), queryStr)
 
 	return url
+}
+
+func escape(str string) string {
+	//go语言中将空格编码为+，需要改为%20
+	//return strings.Replace(strings.Replace(url.QueryEscape(str), "+", "%20", -1), "%2F", "/", -1)
+	return strings.Replace(url.QueryEscape(str), "+", "%20", -1)
 }
 
 func setHeader(req *http.Request, headers map[string]string) {

@@ -1,7 +1,9 @@
 package cos
 
 import (
+	"encoding/xml"
 	"fmt"
+	"time"
 )
 
 // ListAllMyBucketsResult 获取bucket列表的结果
@@ -123,6 +125,36 @@ type CompleteMultipartUploadResult struct {
 	Bucket   string
 	Key      string
 	ETag     string
+}
+
+// ListObjectsResult ListObjects请求返回结果
+type ListObjectsResult struct {
+	XMLName        xml.Name           `xml:"ListBucketResult"`
+	Prefix         string             `xml:"Prefix"`                // 本次查询结果的开始前缀
+	Marker         string             `xml:"Marker"`                // 这次查询的起点
+	NextMarker     string             `xml:"NextMarker"`            // 下次查询的起点
+	MaxKeys        int                `xml:"MaxKeys"`               // 请求返回结果的最大数目
+	IsTruncated    bool               `xml:"IsTruncated"`           // 是否所有的结果都已经返回
+	Objects        []ObjectProperties `xml:"Contents"`              // Object类别
+	CommonPrefixes []string           `xml:"CommonPrefixes>Prefix"` // 以delimiter结尾并有共同前缀的Object的集合
+}
+
+// ObjectProperties Objecct属性
+type ObjectProperties struct {
+	XMLName      xml.Name  `xml:"Contents"`
+	Key          string    `xml:"Key"`          // Object的Key
+	Size         int64     `xml:"Size"`         // Object的长度字节数
+	ETag         string    `xml:"ETag"`         // 标示Object的内容
+	Owner        Owner     `xml:"Owner"`        // 保存Object拥有者信息的容器
+	LastModified time.Time `xml:"LastModified"` // Object最后修改时间
+	StorageClass string    `xml:"StorageClass"` // Object的存储类型
+}
+
+// Owner Bucket/Object的owner
+type Owner struct {
+	XMLName     xml.Name `xml:"Owner"`
+	ID          string   `xml:"ID"`          // 用户ID
+	DisplayName string   `xml:"DisplayName"` // Owner名字
 }
 
 // SliceError slice upload err
